@@ -1,4 +1,5 @@
 pub mod fft;
+pub mod mt19937;
 
 use plotters::prelude::*;
 pub fn plot(vec: &Vec<f64>) {
