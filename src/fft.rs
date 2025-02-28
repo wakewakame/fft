@@ -180,3 +180,75 @@ pub fn to_abs(vec: &Vec<Complex>) -> Vec<f64> {
         .map(|x| (x.0.powi(2) + x.1.powi(2)).sqrt())
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_dft() {
+        let x = (0..8)
+            .map(|x| Complex((std::f64::consts::TAU * x as f64 / 8.0).cos(), 0.0))
+            .collect::<Vec<Complex>>();
+        let y = dft(&x, false);
+        let z = dft(&y, true);
+        assert!((y[0].0 - 0.0).abs() < 1e-10);
+        assert!((y[1].0 - 4.0).abs() < 1e-10);
+        assert!((y[2].0 - 0.0).abs() < 1e-10);
+        assert!((y[3].0 - 0.0).abs() < 1e-10);
+        assert!((y[4].0 - 0.0).abs() < 1e-10);
+        assert!((y[5].0 - 0.0).abs() < 1e-10);
+        assert!((y[6].0 - 0.0).abs() < 1e-10);
+        assert!((y[7].0 - 4.0).abs() < 1e-10);
+        assert!((y[0].1 - 0.0).abs() < 1e-10);
+        assert!((y[1].1 - 0.0).abs() < 1e-10);
+        assert!((y[2].1 - 0.0).abs() < 1e-10);
+        assert!((y[3].1 - 0.0).abs() < 1e-10);
+        assert!((y[4].1 - 0.0).abs() < 1e-10);
+        assert!((y[5].1 - 0.0).abs() < 1e-10);
+        assert!((y[6].1 - 0.0).abs() < 1e-10);
+        assert!((y[7].1 - 0.0).abs() < 1e-10);
+        for (a, b) in x.iter().zip(z.iter()) {
+            assert!((a.0 - b.0).abs() < 1e-10);
+            assert!((a.1 - b.1).abs() < 1e-10);
+        }
+    }
+
+    #[test]
+    fn test_fft_cooley_tukey() {
+        let mut mt = super::super::rand::MT19937::default();
+        let x = (0..128)
+            .map(|_| Complex(mt.f64(), mt.f64()))
+            .collect::<Vec<Complex>>();
+        let expect_fft = dft(&x, false);
+        let actual_fft = fft_cooley_tukey(&x, false);
+        for (a, b) in expect_fft.iter().zip(actual_fft.iter()) {
+            assert!((a.0 - b.0).abs() < 1e-10);
+            assert!((a.1 - b.1).abs() < 1e-10);
+        }
+        let actual_ifft = fft_cooley_tukey(&actual_fft, true);
+        for (a, b) in x.iter().zip(actual_ifft.iter()) {
+            assert!((a.0 - b.0).abs() < 1e-10);
+            assert!((a.1 - b.1).abs() < 1e-10);
+        }
+    }
+
+    #[test]
+    fn test_fft_stockham() {
+        let mut mt = super::super::rand::MT19937::default();
+        let x = (0..128)
+            .map(|_| Complex(mt.f64(), mt.f64()))
+            .collect::<Vec<Complex>>();
+        let expect_fft = dft(&x, false);
+        let actual_fft = fft_stockham(&x, false);
+        for (a, b) in expect_fft.iter().zip(actual_fft.iter()) {
+            assert!((a.0 - b.0).abs() < 1e-10);
+            assert!((a.1 - b.1).abs() < 1e-10);
+        }
+        let actual_ifft = fft_cooley_tukey(&actual_fft, true);
+        for (a, b) in x.iter().zip(actual_ifft.iter()) {
+            assert!((a.0 - b.0).abs() < 1e-10);
+            assert!((a.1 - b.1).abs() < 1e-10);
+        }
+    }
+}

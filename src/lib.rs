@@ -1,5 +1,5 @@
 pub mod fft;
-pub mod mt19937;
+pub mod rand;
 
 use plotters::prelude::*;
 pub fn plot(vec: &Vec<f64>) {
