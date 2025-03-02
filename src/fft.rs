@@ -155,12 +155,18 @@ pub fn convolution(f: &Vec<Complex>, g: &Vec<Complex>) -> Vec<Complex> {
     m
 }
 
+pub fn fft_n(_: &Vec<Complex>, _: bool) -> Vec<Complex> {
+    // TODO: Radix-N FFT への一般化
+    // https://en.wikipedia.org/wiki/Cooley%E2%80%93Tukey_FFT_algorithm#Variations
+    todo!();
+}
+
 pub fn fft_convolution(_: &Vec<f64>, _: &Vec<f64>) -> Vec<f64> {
-    // https://en.wikipedia.org/wiki/Chirp_Z-transform#Bluestein's_algorithm
     todo!();
 }
 
 pub fn fft_blestein(_: &Vec<f64>, _: &Vec<f64>) -> Vec<f64> {
+    // https://en.wikipedia.org/wiki/Chirp_Z-transform#Bluestein's_algorithm
     todo!();
 }
 
