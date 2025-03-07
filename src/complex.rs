@@ -11,6 +11,9 @@ impl Complex {
     pub fn expi(theta: f64) -> Self {
         Complex::new(theta.cos(), theta.sin())
     }
+    pub fn conj(&self) -> Self {
+        Complex::new(self.re, -self.im)
+    }
 }
 
 impl From<f64> for Complex {

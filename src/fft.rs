@@ -183,9 +183,54 @@ pub fn fft_convolution(f: &Vec<Complex>, g: &Vec<Complex>) -> Vec<Complex> {
     m
 }
 
-pub fn fft_blestein(_: &Vec<f64>, _: &Vec<f64>) -> Vec<f64> {
-    // https://en.wikipedia.org/wiki/Chirp_Z-transform#Bluestein's_algorithm
-    todo!();
+pub fn fft_bluestein(x: &Vec<Complex>, invererse: bool) -> Vec<Complex> {
+    let sign = if invererse { 1.0 } else { -1.0 };
+    let w = (0..x.len())
+        .map(|i| {
+            let theta = sign * std::f64::consts::PI * (i * i) as f64 / x.len() as f64;
+            Complex::expi(theta)
+        })
+        .collect::<Vec<_>>();
+    let len = (x.len() * 2 - 1).next_power_of_two();
+    let b = (0..len)
+        .map(|i| {
+            if i < x.len() {
+                w[i].conj()
+            } else if (len - i) < x.len() {
+                w[len - i].conj()
+            } else {
+                Complex::new(0.0, 0.0)
+            }
+        })
+        .collect::<Vec<_>>();
+    let a = (0..len)
+        .map(|i| {
+            if i < x.len() {
+                x[i] * w[i]
+            } else {
+                Complex::new(0.0, 0.0)
+            }
+        })
+        .collect::<Vec<_>>();
+    let a_fft = fft_cooley_tukey(&a, false);
+    let b_fft = fft_cooley_tukey(&b, false);
+    let t_fft = a_fft
+        .iter()
+        .zip(b_fft.iter())
+        .map(|(a, b)| *a * *b)
+        .collect::<Vec<Complex>>();
+    let mut t = fft_cooley_tukey(&t_fft, true);
+    t.truncate(x.len());
+    for ti in 0..t.len() {
+        t[ti] *= b[ti].conj();
+    }
+    if invererse {
+        let t_len = t.len();
+        for ti in 0..t_len {
+            t[ti] /= t_len as f64;
+        }
+    }
+    t
 }
 
 #[cfg(test)]
@@ -203,10 +248,12 @@ mod tests {
         let expect_fft = to_complex(&expect_fft);
         let actual_fft = dft(&x, false);
         let actual_ifft = dft(&actual_fft, true);
+        assert_eq!(actual_fft.len(), expect_fft.len());
         for (a, b) in expect_fft.iter().zip(actual_fft.iter()) {
             assert!((a.re - b.re).abs() < 1e-10, "{} != {}", a.re, b.re);
             assert!((a.im - b.im).abs() < 1e-10, "{} != {}", a.im, b.im);
         }
+        assert_eq!(actual_ifft.len(), x.len());
         for (a, b) in x.iter().zip(actual_ifft.iter()) {
             assert!((a.re - b.re).abs() < 1e-10, "{} != {}", a.re, b.re);
             assert!((a.im - b.im).abs() < 1e-10, "{} != {}", a.im, b.im);
@@ -222,10 +269,12 @@ mod tests {
         let expect_fft = dft(&x, false);
         let actual_fft = fft_cooley_tukey(&x, false);
         let actual_ifft = fft_cooley_tukey(&actual_fft, true);
+        assert_eq!(actual_fft.len(), expect_fft.len());
         for (a, b) in expect_fft.iter().zip(actual_fft.iter()) {
             assert!((a.re - b.re).abs() < 1e-10, "{} != {}", a.re, b.re);
             assert!((a.im - b.im).abs() < 1e-10, "{} != {}", a.im, b.im);
         }
+        assert_eq!(actual_ifft.len(), x.len());
         for (a, b) in x.iter().zip(actual_ifft.iter()) {
             assert!((a.re - b.re).abs() < 1e-10, "{} != {}", a.re, b.re);
             assert!((a.im - b.im).abs() < 1e-10, "{} != {}", a.im, b.im);
@@ -240,11 +289,13 @@ mod tests {
             .collect::<Vec<Complex>>();
         let expect_fft = dft(&x, false);
         let actual_fft = fft_stockham(&x, false);
-        let actual_ifft = fft_cooley_tukey(&actual_fft, true);
+        let actual_ifft = fft_stockham(&actual_fft, true);
+        assert_eq!(actual_fft.len(), expect_fft.len());
         for (a, b) in expect_fft.iter().zip(actual_fft.iter()) {
             assert!((a.re - b.re).abs() < 1e-10, "{} != {}", a.re, b.re);
             assert!((a.im - b.im).abs() < 1e-10, "{} != {}", a.im, b.im);
         }
+        assert_eq!(actual_ifft.len(), x.len());
         for (a, b) in x.iter().zip(actual_ifft.iter()) {
             assert!((a.re - b.re).abs() < 1e-10, "{} != {}", a.re, b.re);
             assert!((a.im - b.im).abs() < 1e-10, "{} != {}", a.im, b.im);
@@ -290,6 +341,27 @@ mod tests {
         }
         assert_eq!(actual2.len(), expect.len());
         for (a, b) in expect.iter().zip(actual2.iter()) {
+            assert!((a.re - b.re).abs() < 1e-10, "{} != {}", a.re, b.re);
+            assert!((a.im - b.im).abs() < 1e-10, "{} != {}", a.im, b.im);
+        }
+    }
+
+    #[test]
+    fn test_fft_bluestein() {
+        let mut mt = MT19937::default();
+        let x = (0..127)
+            .map(|_| Complex::new(mt.f64(), mt.f64()))
+            .collect::<Vec<Complex>>();
+        let expect_fft = dft(&x, false);
+        let actual_fft = fft_bluestein(&x, false);
+        let actual_ifft = fft_bluestein(&actual_fft, true);
+        assert_eq!(actual_fft.len(), expect_fft.len());
+        for (a, b) in expect_fft.iter().zip(actual_fft.iter()) {
+            assert!((a.re - b.re).abs() < 1e-10, "{} != {}", a.re, b.re);
+            assert!((a.im - b.im).abs() < 1e-10, "{} != {}", a.im, b.im);
+        }
+        assert_eq!(actual_ifft.len(), x.len());
+        for (a, b) in x.iter().zip(actual_ifft.iter()) {
             assert!((a.re - b.re).abs() < 1e-10, "{} != {}", a.re, b.re);
             assert!((a.im - b.im).abs() < 1e-10, "{} != {}", a.im, b.im);
         }
