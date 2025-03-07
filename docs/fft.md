@@ -3,7 +3,9 @@
 DFT (離散フーリエ変換) の定義は以下である。
 
 ```math
-X\left[k\right] = \sum_{n=0}^{N-1} x\left[n\right] \exp\left(-2\pi i \frac{n k}{N}\right)
+X\left[k\right] =
+  \sum_{n=0}^{N-1} x\left[n\right]
+  \exp\left(-2\pi i \frac{n k}{N}\right)
 ```
 
 ここで $$X$$ の要素数 $$N$$ が 2 つの整数の積 $$N = N\_1 \times N\_2$$ で表せる時、 DFT は 2 つの DFT に分割して計算することができる。
@@ -148,7 +150,10 @@ x[7] -----------------------------------------------------+-(*-1)-(+)--(*W_8^3)-
 TODO
 ```
 
-参考: [Cooley-Tukey\_FFT\_algorithm - Wikipedia](https://en.wikipedia.org/wiki/Cooley%E2%80%93Tukey_FFT_algorithm#Variations)
+参考
+
+- [Cooley-Tukey\_FFT\_algorithm - Wikipedia](https://en.wikipedia.org/wiki/Cooley%E2%80%93Tukey_FFT_algorithm#Variations)
+- [Cooley-Tukey のアルゴリズム - OTFFT: High Speed FFT Library](http://wwwa.pikara.ne.jp/okojisan/stockham/cooley-tukey.html)
 
 # Stockham FFT
 
@@ -160,4 +165,75 @@ TODO
 
 # Bluestein's FFT
 
-TODO
+Cooley-Tukey FFT では要素数が $$N = N\_1 \times N\_2$$ などの合成数になる配列しか計算量を削減することができなかった。  
+Bluestein's FFT は Cooley-Tukey FFT より遅いものの、要素数が素数など任意の配列長を計算量 $$O(N \log N)$$ でフーリエ変換することができる。
+
+まず、DFT (離散フーリエ変換) の定義は以下である。
+
+```math
+X\left[k\right] =
+  \sum_{n=0}^{N-1} x\left[n\right]
+  \exp\left(-2\pi i \frac{n k}{N}\right)
+```
+
+ここで $$nk$$ を
+
+```math
+\begin{align}
+nk &=
+  \frac{-(k-n)^2}{2} +
+  \frac{n^2}{2} + \frac{k^2}{2} \\
+\end{align}
+```
+
+のように展開し整理すると、
+
+```math
+\begin{align}
+& X\left[k\right] &=
+  \sum_{n=0}^{N-1}
+    x\left[n\right]
+    \exp\left(-2\pi i \frac{n k}{N} \right) \\
+& &=
+  \exp\left(-\pi i \frac{k^2}{N} \right)
+  \sum_{n=0}^{N-1}
+    \left(
+      x\left[n\right]
+      \exp\left(-\pi i \frac{n^2}{N} \right)
+    \right)
+  \exp\left(\pi i \frac{(k-n)^2}{N} \right) \\
+\end{align}
+```
+
+となる。さらに
+
+```math
+\begin{align}
+a\left[n\right] &=
+  x\left[n\right]
+  \exp\left(-\pi i \frac{n^2}{N} \right) \\
+b\left[n\right] &=
+  \exp\left(\pi i \frac{n^2}{N} \right)
+\end{align}
+```
+
+と置き換えると
+
+```math
+\begin{align}
+& X\left[k\right] &=
+  \left(b\left[k\right]^*\right)
+  \left(
+    \sum_{n=0}^{N-1}
+      a\left[n\right]
+      b\left[k-n\right]
+  \right)
+\end{align}
+```
+
+となり、これは畳み込みの形と同じとなる。
+よって、これは Cooley-Tukey FFT の畳み込みを用いて計算量 $$O(N \log N)$$ で計算することができる。
+
+参考
+
+- [Chirp Z-transform - Wikipedia](https://en.wikipedia.org/wiki/Chirp_Z-transform#Bluestein's_algorithm)
