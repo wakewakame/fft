@@ -161,8 +161,26 @@ pub fn fft_n(_: &Vec<Complex>, _: bool) -> Vec<Complex> {
     todo!();
 }
 
-pub fn fft_convolution(_: &Vec<f64>, _: &Vec<f64>) -> Vec<f64> {
-    todo!();
+pub fn fft_convolution(f: &Vec<Complex>, g: &Vec<Complex>) -> Vec<Complex> {
+    if f.len() == 0 || g.len() == 0 {
+        return vec![];
+    }
+    let len = f.len() + g.len() - 1;
+    let len_bit_ceil = len.next_power_of_two();
+    let mut f = f.clone();
+    f.extend(vec![Complex::new(0.0, 0.0); len_bit_ceil - f.len()]);
+    let mut g = g.clone();
+    g.extend(vec![Complex::new(0.0, 0.0); len_bit_ceil - g.len()]);
+    let f_fft = fft_cooley_tukey(&f, false);
+    let g_fft = fft_cooley_tukey(&g, false);
+    let m_fft = f_fft
+        .iter()
+        .zip(g_fft.iter())
+        .map(|(a, b)| *a * *b)
+        .collect::<Vec<Complex>>();
+    let mut m = fft_cooley_tukey(&m_fft, true);
+    m.truncate(len);
+    m
 }
 
 pub fn fft_blestein(_: &Vec<f64>, _: &Vec<f64>) -> Vec<f64> {
@@ -243,10 +261,34 @@ mod tests {
         let expect = to_complex(&expect);
         let actual1 = convolution(&f, &g);
         let actual2 = convolution(&g, &f);
+        assert_eq!(actual1.len(), expect.len());
         for (a, b) in expect.iter().zip(actual1.iter()) {
             assert!((a.re - b.re).abs() < 1e-10, "{} != {}", a.re, b.re);
             assert!((a.im - b.im).abs() < 1e-10, "{} != {}", a.im, b.im);
         }
+        assert_eq!(actual2.len(), expect.len());
+        for (a, b) in expect.iter().zip(actual2.iter()) {
+            assert!((a.re - b.re).abs() < 1e-10, "{} != {}", a.re, b.re);
+            assert!((a.im - b.im).abs() < 1e-10, "{} != {}", a.im, b.im);
+        }
+    }
+
+    #[test]
+    fn test_fft_convolution() {
+        let f: Vec<f64> = vec![1.0, 2.0, 3.0, 4.0];
+        let g: Vec<f64> = vec![5.0, 6.0, 7.0];
+        let expect: Vec<f64> = vec![5.0, 16.0, 34.0, 52.0, 45.0, 28.0];
+        let f = to_complex(&f);
+        let g = to_complex(&g);
+        let expect = to_complex(&expect);
+        let actual1 = fft_convolution(&f, &g);
+        let actual2 = fft_convolution(&g, &f);
+        assert_eq!(actual1.len(), expect.len());
+        for (a, b) in expect.iter().zip(actual1.iter()) {
+            assert!((a.re - b.re).abs() < 1e-10, "{} != {}", a.re, b.re);
+            assert!((a.im - b.im).abs() < 1e-10, "{} != {}", a.im, b.im);
+        }
+        assert_eq!(actual2.len(), expect.len());
         for (a, b) in expect.iter().zip(actual2.iter()) {
             assert!((a.re - b.re).abs() < 1e-10, "{} != {}", a.re, b.re);
             assert!((a.im - b.im).abs() < 1e-10, "{} != {}", a.im, b.im);
