@@ -192,21 +192,21 @@ pub fn fft_bluestein(x: &Vec<Complex>, invererse: bool) -> Vec<Complex> {
         })
         .collect::<Vec<_>>();
     let len = (x.len() * 2 - 1).next_power_of_two();
+    let a = (0..len)
+        .map(|i| {
+            if i < x.len() {
+                x[i] * w[i]
+            } else {
+                Complex::new(0.0, 0.0)
+            }
+        })
+        .collect::<Vec<_>>();
     let b = (0..len)
         .map(|i| {
             if i < x.len() {
                 w[i].conj()
             } else if (len - i) < x.len() {
                 w[len - i].conj()
-            } else {
-                Complex::new(0.0, 0.0)
-            }
-        })
-        .collect::<Vec<_>>();
-    let a = (0..len)
-        .map(|i| {
-            if i < x.len() {
-                x[i] * w[i]
             } else {
                 Complex::new(0.0, 0.0)
             }
