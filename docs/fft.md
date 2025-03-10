@@ -1,17 +1,18 @@
 # Cooley-Tukey FFT
 
-DFT (離散フーリエ変換) の定義は以下である。
+配列長 $N$ の配列 $x$ があったとき、その DFT (離散フーリエ変換) の結果 $X$ は
 
 $$
 \begin{aligned}
-& X\left[k\right] =
-  \sum_{n=0}^{N-1} x\left[n\right]
+& X[k] =
+  \sum_{n=0}^{N-1} x[n]
   \exp\left(-2\pi i \frac{n k}{N}\right) &
-& \left(0 \le k < N\right) &
+& (0 \le k < N) &
 \end{aligned}
 $$
 
-ここで $x$ の要素数 $N$ が 2 つの整数の積 $N = N_1 \times N_2$ で表せる時、 DFT は 2 つの DFT に分割して計算することができる。
+で定義される。  
+ここで $x$ の配列長 $N$ が 2 つの整数の積 $N = N_1 \times N_2$ で表せる時、 DFT は 2 つの DFT に分割して計算することができる。
 
 上式に
 
@@ -19,7 +20,7 @@ $$
 \begin{aligned}
 & N &=& N_1 \times N_2 & & & \\
 & k &=& N_1 k_2 + k_1 &
-& \left( 0 \le k_1 < N_1, 0 \le k_2 < N_2 \right) &
+& ( 0 \le k_1 < N_1, 0 \le k_2 < N_2 ) &
 \end{aligned}
 $$
 
@@ -27,40 +28,39 @@ $$
 
 $$
 \begin{aligned}
-& X\left[k\right] &=&
+& X[k] &=&
   \sum_{n=0}^{N-1}
-    x\left[n\right]
+    x[n]
     \exp\left(-2\pi i \frac{n k}{N} \right) & \\
 & &=&
   \sum_{n=0}^{N_1 N_2 - 1}
-    x\left[n\right]
+    x[n]
     \exp\left(-2\pi i \frac{n k}{N_1 N_2} \right) & \\
 & &=&
   \sum_{n_2=0}^{N_2-1}
     \sum_{n_1=0}^{N_1-1}
-      x\left[N_2 n_1 + n_2\right]
+      x[N_2 n_1 + n_2]
       \exp\left(-2\pi i \frac{(N_2 n_1 + n_2) k}{N_1 N_2} \right) & \\
-\Leftrightarrow & X\left[N_1 k_2 + k_1\right] &=&
+\Leftrightarrow & X[N_1 k_2 + k_1] &=&
   \sum_{n_2=0}^{N_2-1}
     \sum_{n_1=0}^{N_1-1}
-      x\left[N_2 n_1 + n_2\right]
+      x[N_2 n_1 + n_2]
       \exp\left(-2\pi i \frac{(N_2 n_1 + n_2) (N_1 k_2 + k_1)}{N_1 N_2} \right) & \\
 & &=&
   \sum_{n_2=0}^{N_2-1}
     \sum_{n_1=0}^{N_1-1}
       \left(
-        x\left[N_2 n_1 + n_2\right]
+        x[N_2 n_1 + n_2]
         \exp\left(-2\pi i \frac{n_2 k_1}{N_1 N_2} \right)
       \right)
       \exp\left(-2\pi i \frac{n_1 k_1}{N_1} \right)
     \exp\left(-2\pi i \frac{n_2 k_2}{N_2} \right)
-    \exp\left(-2\pi i n_1 k_2 \right) & \\
-&&& \downarrow \textrm{末尾の}\ \exp\left(-2\pi i n_1 k_2 \right)\ \textrm{は常に}\ 1\ \textrm{となるので削除できる} & \\
+    \exp(-2\pi i n_1 k_2 ) & \\
 & &=&
   \sum_{n_2=0}^{N_2-1}
     \sum_{n_1=0}^{N_1-1}
       \left(
-        x\left[N_2 n_1 + n_2\right]
+        x[N_2 n_1 + n_2]
         \exp\left(-2\pi i \frac{n_2 k_1}{N_1 N_2}\right)
       \right)
       \exp\left(-2\pi i \frac{n_1 k_1}{N_1} \right)
@@ -75,11 +75,11 @@ $$
 
 $$
 \begin{aligned}
-& X\left[2 k_2 + 0\right] &=&
+& X[2 k_2 + 0] &=&
   \sum_{n_2=0}^{N_2-1}
     \sum_{n_1=0}^{2-1}
       \left(
-        x\left[N_2 n_1 + n_2\right]
+        x[N_2 n_1 + n_2]
         \exp\left(-2\pi i \frac{0}{2 N_2}\right)
       \right)
       \exp\left(-2\pi i \frac{0}{N_1} \right)
@@ -88,18 +88,18 @@ $$
   \sum_{n_2=0}^{N_2-1}
     \left(
       \sum_{n_1=0}^{2-1}
-        x\left[N_2 n_1 + n_2\right]
+        x[N_2 n_1 + n_2]
     \right)
     \exp\left(-2\pi i \frac{n_2 k_2}{N_2} \right) & \\
 & &=&
   \sum_{n_2=0}^{N_2-1}
-    \left(x\left[n_2\right] + x\left[N_2 + n_2\right]\right)
+    (x[n_2] + x[N_2 + n_2])
     \exp\left(-2\pi i \frac{n_2 k_2}{N_2} \right) & \\
-& X\left[2 k_2 + 1\right] &=&
+& X[2 k_2 + 1] &=&
   \sum_{n_2=0}^{N_2-1}
     \sum_{n_1=0}^{2-1}
       \left(
-        x\left[N_2 n_1 + n_2\right]
+        x[N_2 n_1 + n_2]
         \exp\left(-2\pi i \frac{n_2}{2 N_2}\right)
       \right)
       \exp\left(-2\pi i \frac{n_1}{2} \right)
@@ -109,7 +109,7 @@ $$
     \left(
       \sum_{n_1=0}^{2-1}
         \left(
-          x\left[N_2 n_1 + n_2\right]
+          x[N_2 n_1 + n_2]
         \right)
         \exp\left(-2\pi i \frac{n_1}{2} \right)
     \right)
@@ -118,23 +118,23 @@ $$
 & &=&
   \sum_{n_2=0}^{N_2-1}
     \left(
-      x\left[n_2\right] \exp\left( 0 \right) +
-      x\left[N_2 + n_2\right] \exp\left( -\pi i \right)
+      x[n_2] \exp(0) +
+      x[N_2 + n_2] \exp(-\pi i)
     \right)
     \exp\left(-2\pi i \frac{n_2}{2 N_2}\right)
     \exp\left(-2\pi i \frac{n_2 k_2}{N_2} \right) & \\
 & &=&
   \sum_{n_2=0}^{N_2-1}
     \left(
-      x\left[n_2\right] -
-      x\left[N_2 + n_2\right]
+      x[n_2] -
+      x[N_2 + n_2]
     \right)
     \exp\left(-2\pi i \frac{n_2}{2 N_2}\right)
     \exp\left(-2\pi i \frac{n_2 k_2}{N_2} \right) & \\
 \end{aligned}
 $$
 
-となり、要素数 $N$ の DFT が要素数 $N/2$ の DFT 2 回分に分割することができた。  
+となり、配列長 $N$ の DFT が配列長 $N/2$ の DFT 2 回分に分割することができた。  
 この操作をグラフにすると、かの有名なバタフライ演算の図となる。
 
 ```
@@ -173,47 +173,86 @@ TODO
 
 TODO
 
-# FFT による畳み込み
+# FFT による巡回畳み込み
 
-畳み込みの定義は以下である。
+配列長 $N$ の配列 $a$ と $b$ があったとき、その巡回畳み込み $c$ は
 
 $$
 \begin{aligned}
-& c[m] =
-  \sum_{n=0}^{N_a - 1}
-    a[n] \times b[m-n] &
-  & \left( 0 \le m < N_a + N_b - 1\right) &
+& c[n] =
+  \sum_{m=0}^{N - 1}
+    a[m] \cdot b[(n-m) \mod N] &
+  & ( 0 \le n < N ) &
 \end{aligned}
 $$
 
-ここで $N_a, N_b$ はそれぞれ $a, b$ の要素数である。  
-また $b[m - n]$ の $m-n$ が負になったり配列の範囲外を指すことがあるが、その場合は $0$ として扱う。
+で定義される。  
+そして、このときの $a, b, c$ は離散フーリエ変換 $\mathcal{F}$ を用いて以下が成り立つことが知られている。
 
 $$
-...\textsf{TODO}
+\mathcal{F}(c) = \mathcal{F}(a) \cdot \mathcal{F}(b)
 $$
 
-この式はコードで説明した方がわかりやすいかもしれない。
+証明:
 
-```rust
-fn convolution(a: &Vec<f64>, b: &Vec<f64>) -> Vec<f64> {
-  if a.len() == 0 && b.len() == 0 { return vec![]; }
-  let mut c = vec![0f64; a.len() + b.len() - 1];
-  for ai in 0..a.len() {
-    for bi in 0..b.len() {
-      c[ai + bi] += a[ai] * b[bi];
-    }
-  }
-  return c;
-}
+$$
+\begin{aligned}
+& \mathcal{F}(c) &=&
+  \sum_{n=0}^{N-1}
+    c[n]
+    \exp\left(-2\pi i \frac{n k}{N}\right) & \\
+& &=&
+  \sum_{n=0}^{N-1}
+    \left(
+    \sum_{m=0}^{N - 1}
+      a[m] \cdot b[(n-m) \mod N]
+    \right)
+    \exp\left(-2\pi i \frac{n k}{N}\right) & \\
+& &=&
+  \sum_{m=0}^{N-1}
+    a[m]
+    \sum_{n=0}^{N - 1}
+      b[(n-m) \mod N]
+    \exp\left(-2\pi i \frac{n k}{N}\right) & \\
+& & & \downarrow l = n - m\ と置くと & \\
+& &=&
+  \sum_{m=0}^{N-1}
+    a[m]
+  \sum_{l=0}^{N - 1}
+    b[l]
+    \exp\left(-2\pi i \frac{(m+l) k}{N}\right) & \\
+& &=&
+  \sum_{m=0}^{N-1}
+    a[m]
+    \exp\left(-2\pi i \frac{m k}{N}\right)
+  \sum_{l=0}^{N - 1}
+    b[l]
+    \exp\left(-2\pi i \frac{l k}{N}\right) & \\
+& &=& \mathcal{F}(a) \cdot \mathcal{F}(b) &
+\end{aligned}
+$$
 
-fn main() {
-  let a: Vec<f64> = vec![1.0, 2.0, 3.0];
-  let b: Vec<f64> = vec![4.0, 5.0];
-  let c = convolution(&a, &b);
-  println!("{:?}", c);  // [4.0, 13.0, 22.0, 15.0]
-}
-```
+これを利用して FFT を使えば巡回畳み込みを $O(N \log N)$ で計算できる。
+
+$$
+c[n] = \mathcal{F}^{-1}(\mathcal{F}(a) \cdot \mathcal{F}(b))[n]
+$$
+
+ただし、Cooley-Tukey FFT では配列長が合成数になっている必要があった。  
+計算結果は変えずに配列長を $N'$ に伸ばしたい場合、 $a'$ は $a$ の末尾に $0$ を追加するだけで良いが、 $b'$ はやや複雑である。  
+$b'$ は $b'[(n-m) \mod N']\ (-(N-1) \le n-m \le N-1)$ の範囲が元々の計算に利用されていた。  
+言い換えると $b'$ の末尾 $N-1$ 個と先頭 $N$ 個の範囲が利用されるため、この要素は変更せず中央に $0$ を追加することとなる。  
+
+$$
+\begin{aligned}
+& a &= [&a_{0}&, &a_{1}&, &a_{2}&] \\
+& b &= [&b_{0}&, &b_{1}&, &b_{2}&] \\
+& a' &= [&a_{0}&, &a_{1}&, &a_{2}&, &0&, &...& &&&&, &0&] \\
+& b' &= [&b_{0}&, &b_{1}&, &b_{2}&, &0&, &...&, &0&, &b_{1}&, &b_{2}&]
+\end{aligned}
+$$
+
+つまり $N'$ は最低でも $2N-1$ 以上にする必要があるということになる。
 
 参考
 
@@ -221,20 +260,21 @@ fn main() {
 
 # Bluestein's FFT
 
-Cooley-Tukey FFT では要素数が $N = N_1 \times N_2$ のように合成数になる配列しか計算量を削減することができなかった。  
-Bluestein's FFT は Cooley-Tukey FFT より数倍遅いものの、要素数が素数など任意の配列長を計算量 $O(N \log N)$ でフーリエ変換することができる。
+Cooley-Tukey FFT では配列長が素数などの場合は計算量を削減することができなかった。  
+Bluestein's FFT は Cooley-Tukey FFT より数倍遅いものの、どのような配列長であっても計算量 $O(N \log N)$ でフーリエ変換することができる。
 
-DFT (離散フーリエ変換) の定義は以下である。
+配列長 $N$ の配列 $x$ があったとき、その DFT (離散フーリエ変換) の結果 $X$ は
 
 $$
 \begin{aligned}
-& X\left[k\right] =
-  \sum_{n=0}^{N-1} x\left[n\right]
+& X[k] =
+  \sum_{n=0}^{N-1} x[n]
   \exp\left(-2\pi i \frac{n k}{N}\right) &
-& \left(0 \le k < N\right) &
+& (0 \le k < N) &
 \end{aligned}
 $$
 
+で定義される。  
 ここで $nk$ を
 
 $$
@@ -247,14 +287,14 @@ $$
 
 $$
 \begin{aligned}
-& X\left[k\right] &=&
+& X[k] &=&
   \sum_{n=0}^{N-1}
-    x\left[n\right]
+    x[n]
     \exp\left(-2\pi i \frac{n k}{N} \right) & \\
 & &=&
   \exp\left(-\pi i \frac{k^2}{N} \right)
   \sum_{n=0}^{N-1}
-    x\left[n\right]
+    x[n]
     \exp\left(-\pi i \frac{n^2}{N} \right)
   \exp\left(\pi i \frac{(k-n)^2}{N} \right) & \\
 \end{aligned}
@@ -264,10 +304,10 @@ $$
 
 $$
 \begin{aligned}
-& a\left[n\right] &=&
-  x\left[n\right]
+& a[n] &=&
+  x[n]
   \exp\left(-\pi i \frac{n^2}{N} \right) & \\
-& b\left[n\right] &=&
+& b[n] &=&
   \exp\left(\pi i \frac{n^2}{N} \right) &
 \end{aligned}
 $$
@@ -276,27 +316,32 @@ $$
 
 $$
 \begin{aligned}
-& X\left[k\right] =
-  b\left[k\right]^*
+& X[k] =
+  b[k]^*
   \times
   \left(
     \sum_{n=0}^{N-1}
-      a\left[n\right]
-      b\left[k-n\right]
+      a[n]
+      b[(k-n) \mod 2N]
   \right) &
-& \left(b\left[k\right]^*\ \textrm{は}\ b\left[k\right]\ \textrm{の複素共役} \right) &
+& (b[k]^*\ は\ b[k]\ の複素共役) &
 \end{aligned}
 $$
 
 となり、巡回畳み込みと同じ形となる。  
-よって、これは Cooley-Tukey FFT を使った畳み込み手法を用いて計算量 $O(N \log N)$ で計算することができる。
+よって、これは Cooley-Tukey FFT を使った畳み込み手法を用いて計算量 $O(N \log N)$ で計算することができる。  
+
+ただし、 Cooley-Tukey で計算するにあたり 2 つ注意点がある。
+
+- $a, b$ を FFT に入力するため、配列サイズが 2 の累乗となるよう末尾に 0 を追加する必要がある
+- $b$ はそのままだとマイナス範囲へのアクセスがあるので、マイナス範囲を末尾に移動させる必要がある
 
 **TODO: 以下の文章は書きかけ。もう少しわかりやすく直したい。**
 
 ...だた、これだと $a, b$ の配列サイズが合成数ではないケースもあるので、そのままだと Cooley-Tukey FFT を使った畳み込みができない。
 そのため、配列の数が $2^N$ などになるよう、配列末尾に $0$ を追加して配列サイズを稼ぐ。
 
-...また、これだと $b\left[k-n\right]$ は $-(N-1) \le k-n < N$ の範囲で利用されるので、マイナス範囲へのアクセスがコードに落とし込みづらい。  
+...また、これだと $b[k-n]$ は $-(N-1) \le k-n < N$ の範囲で利用されるので、マイナス範囲へのアクセスがコードに落とし込みづらい。  
 $b$ のマイナスの範囲を末尾に移動させた $b'$ を考える。
 
 $$
@@ -311,15 +356,15 @@ $$
 
 $$
 \begin{aligned}
-& X\left[k\right] =
-  b\left[k\right]^*
+& X[k] =
+  b[k]^*
   \times
   \left(
     \sum_{n=0}^{N-1}
-      a\left[n\right]
-      b'\left[\left(k-n\right) \mod N_b\right]
+      a[n]
+      b'[(k-n) \mod N_b]
   \right) &
-& \left(b\left[k\right]^* は b\left[k\right] の複素共役\right) &
+& (b[k]^*\ は\ b[k]\ の複素共役) &
 \end{aligned}
 $$
 
