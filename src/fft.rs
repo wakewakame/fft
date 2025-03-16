@@ -1,7 +1,7 @@
 use super::complex::Complex;
 
-pub fn dft(x: &Vec<Complex>, invererse: bool) -> Vec<Complex> {
-    let sign = if invererse { 1.0 } else { -1.0 };
+pub fn dft(x: &Vec<Complex>, inverse: bool) -> Vec<Complex> {
+    let sign = if inverse { 1.0 } else { -1.0 };
     let mut t = vec![Complex::new(0.0, 0.0); x.len()];
 
     for ti in 0..t.len() {
@@ -12,7 +12,7 @@ pub fn dft(x: &Vec<Complex>, invererse: bool) -> Vec<Complex> {
         }
     }
 
-    if invererse {
+    if inverse {
         let t_len = t.len();
         for ti in 0..t_len {
             t[ti] /= t_len as f64;
@@ -22,7 +22,7 @@ pub fn dft(x: &Vec<Complex>, invererse: bool) -> Vec<Complex> {
     t
 }
 
-pub fn fft_cooley_tukey(x: &Vec<Complex>, invererse: bool) -> Vec<Complex> {
+pub fn fft_cooley_tukey(x: &Vec<Complex>, inverse: bool) -> Vec<Complex> {
     /*
 
       T[0] ---+---------------+---------+-----> T[0]
@@ -45,15 +45,9 @@ pub fn fft_cooley_tukey(x: &Vec<Complex>, invererse: bool) -> Vec<Complex> {
 
     let mut t = x.clone();
 
-    fn fft_inner(
-        t: &mut [Complex],
-        t_len: usize,
-        t_offset: usize,
-        t_origin: usize,
-        invererse: bool,
-    ) {
+    fn fft_inner(t: &mut [Complex], t_len: usize, t_offset: usize, t_origin: usize, inverse: bool) {
         if t_len > 1 {
-            let sign = if invererse { 1.0 } else { -1.0 };
+            let sign = if inverse { 1.0 } else { -1.0 };
             let t_mid = t_len >> 1;
             for t_i in t_offset..t_mid + t_offset {
                 let theta = sign * std::f64::consts::TAU * t_i as f64 / t_len as f64;
@@ -64,17 +58,17 @@ pub fn fft_cooley_tukey(x: &Vec<Complex>, invererse: bool) -> Vec<Complex> {
                 t[t_i + t_mid] = (a - b) * wn;
             }
             let stride = t.len() / t_len;
-            fft_inner(t, t_mid, t_offset, t_origin, invererse);
-            fft_inner(t, t_mid, t_offset + t_mid, t_origin + stride, invererse);
+            fft_inner(t, t_mid, t_offset, t_origin, inverse);
+            fft_inner(t, t_mid, t_offset + t_mid, t_origin + stride, inverse);
         } else if t_len == 1 && t_offset > t_origin {
             t.swap(t_offset, t_origin);
         }
     }
 
     let t_len = t.len();
-    fft_inner(&mut t, t_len, 0, 0, invererse);
+    fft_inner(&mut t, t_len, 0, 0, inverse);
 
-    if invererse {
+    if inverse {
         for ti in 0..t_len {
             t[ti] /= t_len as f64;
         }
@@ -83,7 +77,7 @@ pub fn fft_cooley_tukey(x: &Vec<Complex>, invererse: bool) -> Vec<Complex> {
     t
 }
 
-pub fn fft_stockham(x: &Vec<Complex>, invererse: bool) -> Vec<Complex> {
+pub fn fft_stockham(x: &Vec<Complex>, inverse: bool) -> Vec<Complex> {
     /*
 
       T1[0] --+-------------> T2[0] | T2[0] --+-------------> T1[0] | T1[0] --+-------------> T2[0]
@@ -106,7 +100,7 @@ pub fn fft_stockham(x: &Vec<Complex>, invererse: bool) -> Vec<Complex> {
 
     let mut t1 = x.clone();
     let mut t2 = vec![Complex::new(0.0, 0.0); t1.len()];
-    let sign = if invererse { 1.0 } else { -1.0 };
+    let sign = if inverse { 1.0 } else { -1.0 };
     let w = (0..t1.len())
         .map(|i| {
             let theta = sign * std::f64::consts::TAU * i as f64 / t1.len() as f64;
@@ -131,7 +125,7 @@ pub fn fft_stockham(x: &Vec<Complex>, invererse: bool) -> Vec<Complex> {
         std::mem::swap(&mut t1, &mut t2);
     }
 
-    if invererse {
+    if inverse {
         let t_len = t1.len();
         for ti in 0..t_len {
             t1[ti] /= t_len as f64;
@@ -141,8 +135,8 @@ pub fn fft_stockham(x: &Vec<Complex>, invererse: bool) -> Vec<Complex> {
     t1
 }
 
-pub fn fft_n(x: &Vec<Complex>, invererse: bool) -> Vec<Complex> {
-    let sign = if invererse { 1.0 } else { -1.0 };
+pub fn fft_n(x: &Vec<Complex>, inverse: bool) -> Vec<Complex> {
+    let sign = if inverse { 1.0 } else { -1.0 };
     let w = (0..x.len())
         .map(|i| {
             let theta = sign * std::f64::consts::TAU * i as f64 / x.len() as f64;
@@ -175,7 +169,7 @@ pub fn fft_n(x: &Vec<Complex>, invererse: bool) -> Vec<Complex> {
         len = len2;
         std::mem::swap(&mut x1, &mut x2);
     }
-    if invererse {
+    if inverse {
         for n in 0..x.len() {
             x1[n] /= x.len() as f64;
         }
@@ -219,8 +213,8 @@ pub fn fft_convolution(f: &Vec<Complex>, g: &Vec<Complex>) -> Vec<Complex> {
     m
 }
 
-pub fn fft_bluestein(x: &Vec<Complex>, invererse: bool) -> Vec<Complex> {
-    let sign = if invererse { 1.0 } else { -1.0 };
+pub fn fft_bluestein(x: &Vec<Complex>, inverse: bool) -> Vec<Complex> {
+    let sign = if inverse { 1.0 } else { -1.0 };
     let w = (0..x.len())
         .map(|i| {
             let theta = sign * std::f64::consts::PI * (i * i) as f64 / x.len() as f64;
@@ -260,7 +254,7 @@ pub fn fft_bluestein(x: &Vec<Complex>, invererse: bool) -> Vec<Complex> {
     for ti in 0..t.len() {
         t[ti] *= b[ti].conj();
     }
-    if invererse {
+    if inverse {
         let t_len = t.len();
         for ti in 0..t_len {
             t[ti] /= t_len as f64;
