@@ -160,8 +160,92 @@ x[7] -----------------------------------------------------+-(*-1)-(+)--(*W_8^3)-
 
 最後にサンプルコードを示す。
 
-```
-TODO
+```rust
+fn fft(x: &Vec<(f64, f64)>, inverse: bool) -> Vec<(f64, f64)> {
+    // 事前に w を計算しておく
+    let sign = if inverse { 1.0 } else { -1.0 };
+    let w: Vec<(f64, f64)> = (0..x.len())
+        .map(|i| {
+            let theta = sign * std::f64::consts::TAU * i as f64 / x.len() as f64;
+            (theta.cos(), theta.sin())
+        })
+        .collect();
+
+    // 出力用 (x1 と x2 を交互に使い回す)
+    let mut x1 = x.clone();
+    let mut x2 = vec![(0f64, 0f64); x1.len()];
+
+    // バタフライ演算
+    let mut stride = 1;
+    let mut len = x.len();
+    while len > 1 {
+        // x2 を 0 で初期化
+        for k in 0..x2.len() {
+            x2[k] = (0.0, 0.0);
+        }
+
+        // len を 2 つの整数の積に分解
+        let len1 = {
+            const FACTORS: [usize; 6] = [7, 6, 5, 4, 3, 2];
+            FACTORS.into_iter().find(|f| len % f == 0).unwrap_or(len)
+        };
+        let len2 = len / len1;
+
+        // バタフライ演算
+        for k1 in 0..len1 {
+            for n1 in 0..len1 {
+                for n2 in 0..len2 {
+                    let k = len1 * n2 + k1;
+                    let n = len2 * n1 + n2;
+                    let w = w[(stride * n * k1) % w.len()];
+                    for offset in 0..stride {
+                        let k = stride * k + offset;
+                        let n = stride * n + offset;
+                        x2[k].0 += x1[n].0 * w.0 - x1[n].1 * w.1;
+                        x2[k].1 += x1[n].0 * w.1 + x1[n].1 * w.0;
+                    }
+                }
+            }
+        }
+
+        // x1 と x2 を入れ替えて次のステップへ
+        std::mem::swap(&mut x1, &mut x2);
+        stride *= len1;
+        len = len2;
+    }
+
+    // 逆変換の場合は正規化
+    if inverse {
+        for n in 0..x.len() {
+            x1[n].0 /= x.len() as f64;
+            x1[n].1 /= x.len() as f64;
+        }
+    }
+
+    x1
+}
+
+fn main() {
+    let len = 2 * 2 * 2 * 3 * 3 * 7 * 13;
+
+    // 1 Hz の正弦波
+    let x: Vec<(f64, f64)> = (0..len)
+        .map(|n| std::f64::consts::TAU * (n as f64) / (len as f64))
+        .map(|n| (n.cos(), n.sin()))
+        .collect();
+
+    let y = fft(&x, false);
+
+    for v in y.iter().take(5) {
+        println!("{:.3}, {:.3}", v.0 / len as f64, v.1 / len as f64);
+        // 0.000, 0.000
+        // 1.000, 0.000
+        // 0.000, 0.000
+        // 0.000, 0.000
+        // 0.000, 0.000
+        // ...
+    }
+}
 ```
 
 参考
