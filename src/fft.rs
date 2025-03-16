@@ -23,58 +23,52 @@ pub fn dft(x: &Vec<Complex>, inverse: bool) -> Vec<Complex> {
 }
 
 pub fn fft_cooley_tukey(x: &Vec<Complex>, inverse: bool) -> Vec<Complex> {
-    /*
+    // 事前に w を計算しておく
+    let sign = if inverse { 1.0 } else { -1.0 };
+    let w = (0..x.len())
+        .map(|i| {
+            let theta = sign * std::f64::consts::TAU * i as f64 / x.len() as f64;
+            Complex::expi(theta)
+        })
+        .collect::<Vec<_>>();
 
-      T[0] ---+---------------+---------+-----> T[0]
-             ^|              ^|        ^v
-      T[1] --||--+-----------||--+-----+--W0--> T[4]
-             || ^|           |v ^|
-      T[2] --||-||--+--------+--||-W0---+-----> T[2]
-             || || ^|           |v     ^v
-      T[3] --||-||-||--+--------+--W2--+--W0--> T[6]
-             |v || || ^|
-      T[4] --+--||-||-||-W0---+---------+-----> T[1]
-                |v || ||     ^|        ^v
-      T[5] -----+--||-||-W1--||--+-----+--W0--> T[5]
-                   |v ||     |v ^|
-      T[6] --------+--||-W2--+--||-W0---+-----> T[3]
-                      |v        |v     ^v
-      T[7] -----------+--W3-----+--W2--+--W0--> T[7]
+    let mut x = x.clone();
 
-    */
-
-    let mut t = x.clone();
-
-    fn fft_inner(t: &mut [Complex], t_len: usize, t_offset: usize, t_origin: usize, inverse: bool) {
-        if t_len > 1 {
-            let sign = if inverse { 1.0 } else { -1.0 };
-            let t_mid = t_len >> 1;
-            for t_i in t_offset..t_mid + t_offset {
-                let theta = sign * std::f64::consts::TAU * t_i as f64 / t_len as f64;
-                let wn = Complex::expi(theta);
-                let a = t[t_i];
-                let b = t[t_i + t_mid];
-                t[t_i] = a + b;
-                t[t_i + t_mid] = (a - b) * wn;
+    fn fft_inner(
+        w: &Vec<Complex>,
+        x: &mut [Complex],
+        len: usize,
+        offset: usize,
+        origin: usize,
+        inverse: bool,
+    ) {
+        if len > 1 {
+            let mid = len >> 1;
+            for i in offset..mid + offset {
+                let wn = w[i * w.len() / len % w.len()];
+                let a = x[i];
+                let b = x[i + mid];
+                x[i] = a + b;
+                x[i + mid] = (a - b) * wn;
             }
-            let stride = t.len() / t_len;
-            fft_inner(t, t_mid, t_offset, t_origin, inverse);
-            fft_inner(t, t_mid, t_offset + t_mid, t_origin + stride, inverse);
-        } else if t_len == 1 && t_offset > t_origin {
-            t.swap(t_offset, t_origin);
+            let stride = x.len() / len;
+            fft_inner(w, x, mid, offset, origin, inverse);
+            fft_inner(w, x, mid, offset + mid, origin + stride, inverse);
+        } else if len == 1 && offset > origin {
+            x.swap(offset, origin);
         }
     }
 
-    let t_len = t.len();
-    fft_inner(&mut t, t_len, 0, 0, inverse);
+    let len = x.len();
+    fft_inner(&w, &mut x, len, 0, 0, inverse);
 
     if inverse {
-        for ti in 0..t_len {
-            t[ti] /= t_len as f64;
+        for ti in 0..len {
+            x[ti] /= len as f64;
         }
     }
 
-    t
+    x
 }
 
 pub fn fft_stockham(x: &Vec<Complex>, inverse: bool) -> Vec<Complex> {
@@ -160,7 +154,7 @@ pub fn fft_n(x: &Vec<Complex>, inverse: bool) -> Vec<Complex> {
 
         // len を 2 つの整数の積に分解
         let len1 = {
-            const FACTORS: [usize; 6] = [7, 6, 5, 4, 3, 2];
+            const FACTORS: [usize; 6] = [13, 11, 7, 5, 3, 2];
             FACTORS.into_iter().find(|f| len % f == 0).unwrap_or(len)
         };
         let len2 = len / len1;
@@ -279,6 +273,37 @@ pub fn fft_bluestein(x: &Vec<Complex>, inverse: bool) -> Vec<Complex> {
         }
     }
     t
+}
+
+pub fn bench() {
+    let len_patterns: Vec<usize> = (0..=16).map(|x| 1 << x).collect();
+    let mut mt = super::rand::MT19937::default();
+
+    println!("len,\tcooley_tukey,\tstockham,\tn,\tbluestein");
+    for len in len_patterns.into_iter() {
+        let x: Vec<Complex> = (0..len).map(|_| Complex::new(mt.f64(), mt.f64())).collect();
+
+        let start = std::time::Instant::now();
+        let _ = fft_cooley_tukey(&x, false);
+        let cooley_tukey_dur = start.elapsed().as_secs_f64();
+
+        let start = std::time::Instant::now();
+        let _ = fft_stockham(&x, false);
+        let stockham_dur = start.elapsed().as_secs_f64();
+
+        let start = std::time::Instant::now();
+        let _ = fft_n(&x, false);
+        let n_dur = start.elapsed().as_secs_f64();
+
+        let start = std::time::Instant::now();
+        let _ = fft_bluestein(&x, false);
+        let bluestein_dur = start.elapsed().as_secs_f64();
+
+        println!(
+            "{},\t{:.9},\t{:.9},\t{:.9},\t{:.9}",
+            len, cooley_tukey_dur, stockham_dur, n_dur, bluestein_dur
+        );
+    }
 }
 
 #[cfg(test)]
@@ -419,21 +444,22 @@ mod tests {
     #[test]
     fn test_fft_bluestein() {
         let mut mt = MT19937::default();
-        let x = (0..127)
-            .map(|_| Complex::new(mt.f64(), mt.f64()))
-            .collect::<Vec<Complex>>();
-        let expect_fft = dft(&x, false);
-        let actual_fft = fft_bluestein(&x, false);
-        let actual_ifft = fft_bluestein(&actual_fft, true);
-        assert_eq!(actual_fft.len(), expect_fft.len());
-        for (a, b) in expect_fft.iter().zip(actual_fft.iter()) {
-            assert!((a.re - b.re).abs() < 1e-10, "{} != {}", a.re, b.re);
-            assert!((a.im - b.im).abs() < 1e-10, "{} != {}", a.im, b.im);
-        }
-        assert_eq!(actual_ifft.len(), x.len());
-        for (a, b) in x.iter().zip(actual_ifft.iter()) {
-            assert!((a.re - b.re).abs() < 1e-10, "{} != {}", a.re, b.re);
-            assert!((a.im - b.im).abs() < 1e-10, "{} != {}", a.im, b.im);
+        const LEN_PATTERNS: [usize; 3] = [128, 2 * 2 * 2 * 3 * 3 * 7, 127];
+        for len in LEN_PATTERNS.into_iter() {
+            let x: Vec<Complex> = (0..len).map(|_| Complex::new(mt.f64(), mt.f64())).collect();
+            let expect_fft = dft(&x, false);
+            let actual_fft = fft_bluestein(&x, false);
+            let actual_ifft = fft_bluestein(&actual_fft, true);
+            assert_eq!(actual_fft.len(), expect_fft.len());
+            for (a, b) in expect_fft.iter().zip(actual_fft.iter()) {
+                assert!((a.re - b.re).abs() < 1e-10, "{} != {}", a.re, b.re);
+                assert!((a.im - b.im).abs() < 1e-10, "{} != {}", a.im, b.im);
+            }
+            assert_eq!(actual_ifft.len(), x.len());
+            for (a, b) in x.iter().zip(actual_ifft.iter()) {
+                assert!((a.re - b.re).abs() < 1e-10, "{} != {}", a.re, b.re);
+                assert!((a.im - b.im).abs() < 1e-10, "{} != {}", a.im, b.im);
+            }
         }
     }
 }

@@ -1,3 +1,8 @@
+fn main() {
+    math::fft::bench();
+}
+
+/*
 use math::complex::*;
 use math::fft::*;
 use math::*;
@@ -22,3 +27,4 @@ pub fn add_sin(vec: &mut Vec<f64>, freq: f64, phase: f64, amp: f64) {
         *x += amp * (std::f64::consts::TAU * freq * i as f64 / len + phase).sin();
     });
 }
+*/
