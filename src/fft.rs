@@ -141,6 +141,48 @@ pub fn fft_stockham(x: &Vec<Complex>, invererse: bool) -> Vec<Complex> {
     t1
 }
 
+pub fn fft_n(x: &Vec<Complex>, invererse: bool) -> Vec<Complex> {
+    let sign = if invererse { 1.0 } else { -1.0 };
+    let w = (0..x.len())
+        .map(|i| {
+            let theta = sign * std::f64::consts::TAU * i as f64 / x.len() as f64;
+            Complex::expi(theta)
+        })
+        .collect::<Vec<_>>();
+    let mut x1 = x.clone();
+    let mut x2 = vec![Complex::new(0.0, 0.0); x1.len()];
+    let mut stride = 1;
+    let mut len = x1.len();
+    while len > 1 {
+        let len1 = {
+            //const FACTORS: [usize; 6] = [7, 6, 5, 4, 3, 2];
+            const FACTORS: [usize; 1] = [2];
+            FACTORS.into_iter().find(|f| len % f == 0).unwrap_or(len)
+        };
+        let len2 = len / len1;
+        for offset in 0..stride {
+            for n2 in 0..len2 {
+                for k1 in 0..len1 {
+                    for n1 in 0..len1 {
+                        x2[offset + stride * (len1 * n2 + k1)] += x1
+                            [offset + stride * (len2 * n1 + n2)]
+                            * w[(stride * (n2 + len2 * n1) * k1) % w.len()];
+                    }
+                }
+            }
+        }
+        stride *= len1;
+        len = len2;
+        std::mem::swap(&mut x1, &mut x2);
+    }
+    if invererse {
+        for n in 0..x.len() {
+            x1[n] /= x.len() as f64;
+        }
+    }
+    x1
+}
+
 pub fn convolution(f: &Vec<Complex>, g: &Vec<Complex>) -> Vec<Complex> {
     let (f, g) = if f.len() > g.len() { (f, g) } else { (g, f) };
     if g.len() == 0 {
@@ -153,12 +195,6 @@ pub fn convolution(f: &Vec<Complex>, g: &Vec<Complex>) -> Vec<Complex> {
         }
     }
     m
-}
-
-pub fn fft_n(_: &Vec<Complex>, _: bool) -> Vec<Complex> {
-    // TODO: Radix-N FFT への一般化
-    // https://en.wikipedia.org/wiki/Cooley%E2%80%93Tukey_FFT_algorithm#Variations
-    todo!();
 }
 
 pub fn fft_convolution(f: &Vec<Complex>, g: &Vec<Complex>) -> Vec<Complex> {
@@ -300,6 +336,27 @@ mod tests {
             assert!((a.re - b.re).abs() < 1e-10, "{} != {}", a.re, b.re);
             assert!((a.im - b.im).abs() < 1e-10, "{} != {}", a.im, b.im);
         }
+    }
+
+    #[test]
+    fn test_fft_n() {
+        let mut mt = MT19937::default();
+        let x = (0..128)
+            .map(|_| Complex::new(mt.f64(), mt.f64()))
+            .collect::<Vec<Complex>>();
+        let expect_fft = dft(&x, false);
+        let actual_fft = fft_n(&x, false);
+        //let actual_ifft = fft_n(&actual_fft, true);
+        assert_eq!(actual_fft.len(), expect_fft.len());
+        for (a, b) in expect_fft.iter().zip(actual_fft.iter()) {
+            assert!((a.re - b.re).abs() < 1e-10, "{} != {}", a.re, b.re);
+            assert!((a.im - b.im).abs() < 1e-10, "{} != {}", a.im, b.im);
+        }
+        //assert_eq!(actual_ifft.len(), x.len());
+        //for (a, b) in x.iter().zip(actual_ifft.iter()) {
+        //    assert!((a.re - b.re).abs() < 1e-10, "{} != {}", a.re, b.re);
+        //    assert!((a.im - b.im).abs() < 1e-10, "{} != {}", a.im, b.im);
+        //}
     }
 
     #[test]
