@@ -22,6 +22,96 @@ pub fn dft(x: &Vec<Complex>, inverse: bool) -> Vec<Complex> {
     t
 }
 
+pub fn fft_inplace(x: &Vec<Complex>, inverse: bool) -> Vec<Complex> {
+    fn butterfly2(w: &[Complex], x: &mut [Complex], len: usize, len2: usize) {
+        for offset in (0..x.len()).step_by(len) {
+            for n2 in offset..(offset + len2) {
+                let a = x[n2];
+                let b = x[n2 + len2];
+                let w = w[(n2 * w.len() / len) % w.len()];
+                x[n2] = a + b;
+                x[n2 + len2] = (a - b) * w;
+            }
+        }
+    }
+
+    fn butterfly_n(w: &[Complex], x: &mut [Complex], len: usize, len1: usize, len2: usize) {
+        for offset in (0..x.len()).step_by(len) {
+            for n2 in 0..len2 {
+                let mut new_x2 = vec![Complex::new(0.0, 0.0); len1];
+                for k1 in 0..len1 {
+                    for n1 in 0..len1 {
+                        let n = len2 * n1 + n2;
+                        let w = w[(n * k1 * w.len() / len) % w.len()];
+                        new_x2[k1] += x[offset + n] * w;
+                    }
+                }
+                for k1 in 0..len1 {
+                    let k = len2 * k1 + n2;
+                    x[offset + k] = new_x2[k1];
+                }
+            }
+        }
+    }
+
+    // 事前に w を計算しておく
+    let sign = if inverse { 1.0 } else { -1.0 };
+    let w: Vec<Complex> = (0..x.len())
+        .map(|i| {
+            let theta = sign * std::f64::consts::TAU * i as f64 / x.len() as f64;
+            Complex::expi(theta)
+        })
+        .collect();
+
+    let mut x = x.clone();
+
+    let mut len = x.len();
+    while len > 1 {
+        // len を 2 つの整数の積に分解
+        let len1 = {
+            const FACTORS: [usize; 6] = [13, 11, 7, 5, 3, 2];
+            FACTORS.into_iter().find(|f| len % f == 0).unwrap_or(len)
+        };
+        let len2 = len / len1;
+
+        match len1 {
+            2 => butterfly2(&w, &mut x, len, len2),
+            3..=7 => butterfly_n(&w, &mut x, len, len1, len2),
+            _ => todo!(), // _ => bluestein(&w, &x, len),
+        }
+
+        len = len2;
+    }
+
+    // 逆変換の場合は正規化
+    if inverse {
+        let len = x.len();
+        for n in 0..len {
+            x[n] /= len as f64;
+        }
+    }
+
+    // TODO: 2 の冪乗以外にも対応する
+    bit_reverse(x.len(), &mut x);
+
+    x
+}
+
+fn bit_reverse(n: usize, x: &mut [Complex]) {
+    let mut i = 0;
+    for j in 1..n - 1 {
+        let mut k = n >> 1;
+        i ^= k;
+        while k > i {
+            k >>= 1;
+            i ^= k;
+        }
+        if i < j {
+            x.swap(i, j);
+        }
+    }
+}
+
 pub fn fft_cooley_tukey(x: &Vec<Complex>, inverse: bool) -> Vec<Complex> {
     // 事前に w を計算しておく
     let sign = if inverse { 1.0 } else { -1.0 };
@@ -279,9 +369,13 @@ pub fn bench() {
     let len_patterns: Vec<usize> = (0..=16).map(|x| 1 << x).collect();
     let mut mt = super::rand::MT19937::default();
 
-    println!("len,\tcooley_tukey,\tstockham,\tn,\tbluestein");
+    println!("len,\tinplace,\tcooley_tukey,\tstockham,\tn,\tbluestein");
     for len in len_patterns.into_iter() {
         let x: Vec<Complex> = (0..len).map(|_| Complex::new(mt.f64(), mt.f64())).collect();
+
+        let start = std::time::Instant::now();
+        let _ = fft_inplace(&x, false);
+        let inplace_dur = start.elapsed().as_secs_f64();
 
         let start = std::time::Instant::now();
         let _ = fft_cooley_tukey(&x, false);
@@ -300,8 +394,8 @@ pub fn bench() {
         let bluestein_dur = start.elapsed().as_secs_f64();
 
         println!(
-            "{},\t{:.9},\t{:.9},\t{:.9},\t{:.9}",
-            len, cooley_tukey_dur, stockham_dur, n_dur, bluestein_dur
+            "{},\t{:.9},\t{:.9},\t{:.9},\t{:.9},\t{:.9}",
+            len, inplace_dur, cooley_tukey_dur, stockham_dur, n_dur, bluestein_dur
         );
     }
 }
@@ -330,6 +424,29 @@ mod tests {
         for (a, b) in x.iter().zip(actual_ifft.iter()) {
             assert!((a.re - b.re).abs() < 1e-10, "{} != {}", a.re, b.re);
             assert!((a.im - b.im).abs() < 1e-10, "{} != {}", a.im, b.im);
+        }
+    }
+
+    #[test]
+    fn test_fft() {
+        let mut mt = MT19937::default();
+        //const LEN_PATTERNS: [usize; 3] = [128, 2 * 2 * 2 * 3 * 3 * 7, 127];
+        const LEN_PATTERNS: [usize; 1] = [128];
+        for len in LEN_PATTERNS.into_iter() {
+            let x: Vec<Complex> = (0..len).map(|_| Complex::new(mt.f64(), mt.f64())).collect();
+            let expect_fft = dft(&x, false);
+            let actual_fft = fft_inplace(&x, false);
+            let actual_ifft = fft_inplace(&actual_fft, true);
+            assert_eq!(actual_fft.len(), expect_fft.len());
+            for (a, b) in expect_fft.iter().zip(actual_fft.iter()) {
+                assert!((a.re - b.re).abs() < 1e-10, "{} != {}", a.re, b.re);
+                assert!((a.im - b.im).abs() < 1e-10, "{} != {}", a.im, b.im);
+            }
+            assert_eq!(actual_ifft.len(), x.len());
+            for (a, b) in x.iter().zip(actual_ifft.iter()) {
+                assert!((a.re - b.re).abs() < 1e-10, "{} != {}", a.re, b.re);
+                assert!((a.im - b.im).abs() < 1e-10, "{} != {}", a.im, b.im);
+            }
         }
     }
 
@@ -460,6 +577,23 @@ mod tests {
                 assert!((a.re - b.re).abs() < 1e-10, "{} != {}", a.re, b.re);
                 assert!((a.im - b.im).abs() < 1e-10, "{} != {}", a.im, b.im);
             }
+        }
+    }
+
+    #[test]
+    fn test_bit_reverse() {
+        let mut x: Vec<Complex> = vec![0, 1, 2, 3, 4, 5, 6, 7]
+            .into_iter()
+            .map(|x| Complex::new(x as f64, 0.0))
+            .collect();
+        let expect: Vec<Complex> = vec![0, 4, 2, 6, 1, 5, 3, 7]
+            .into_iter()
+            .map(|x| Complex::new(x as f64, 0.0))
+            .collect();
+        bit_reverse(x.len(), &mut x);
+        for (a, b) in expect.iter().zip(x.iter()) {
+            assert!((a.re - b.re).abs() < 1e-10, "{} != {}", a.re, b.re);
+            assert!((a.im - b.im).abs() < 1e-10, "{} != {}", a.im, b.im);
         }
     }
 }
