@@ -175,34 +175,49 @@ fn fft(x: &Vec<(f64, f64)>, inverse: bool) -> Vec<(f64, f64)> {
     let mut x1 = x.clone();
     let mut x2 = vec![(0f64, 0f64); x1.len()];
 
-    // バタフライ演算
+    // FFT
     let mut stride = 1;
     let mut len = x.len();
     while len > 1 {
-        // x2 を 0 で初期化
-        for k in 0..x2.len() {
-            x2[k] = (0.0, 0.0);
-        }
-
         // len を 2 つの整数の積に分解
         let len1 = {
-            const FACTORS: [usize; 6] = [7, 6, 5, 4, 3, 2];
+            const FACTORS: [usize; 4] = [2, 3, 5, 7];
             FACTORS.into_iter().find(|f| len % f == 0).unwrap_or(len)
         };
         let len2 = len / len1;
 
         // バタフライ演算
-        for k1 in 0..len1 {
-            for n1 in 0..len1 {
+        match len1 {
+            // 高速化のため、基数が小さいときは式を展開
+            2 => {
                 for n2 in 0..len2 {
-                    let k = len1 * n2 + k1;
-                    let n = len2 * n1 + n2;
-                    let w = w[(stride * n * k1) % w.len()];
+                    let w = w[(stride * n2) % w.len()];
                     for offset in 0..stride {
-                        let k = stride * k + offset;
-                        let n = stride * n + offset;
-                        x2[k].0 += x1[n].0 * w.0 - x1[n].1 * w.1;
-                        x2[k].1 += x1[n].0 * w.1 + x1[n].1 * w.0;
+                        let a = x1[stride * n2 + offset];
+                        let b = x1[stride * (n2 + len2) + offset];
+                        x2[stride * (2 * n2) + offset] = (a.0 + b.0, a.1 + b.1);
+                        x2[stride * (2 * n2 + 1) + offset] = (
+                            (a.0 - b.0) * w.0 - (a.1 - b.1) * w.1,
+                            (a.0 - b.0) * w.1 + (a.1 - b.1) * w.0,
+                        );
+                    }
+                }
+            }
+            _ => {
+                x2.iter_mut().for_each(|x| *x = (0.0, 0.0));
+                for k1 in 0..len1 {
+                    for n1 in 0..len1 {
+                        for n2 in 0..len2 {
+                            let k = len1 * n2 + k1;
+                            let n = len2 * n1 + n2;
+                            let w = w[(stride * n * k1) % w.len()];
+                            for offset in 0..stride {
+                                let k = stride * k + offset;
+                                let n = stride * n + offset;
+                                x2[k].0 += x1[n].0 * w.0 - x1[n].1 * w.1;
+                                x2[k].1 += x1[n].0 * w.1 + x1[n].1 * w.0;
+                            }
+                        }
                     }
                 }
             }
