@@ -367,11 +367,13 @@ pub fn fft_bluestein(x: &Vec<Complex>, inverse: bool) -> Vec<Complex> {
 
 pub fn bench() {
     let len_patterns: Vec<usize> = (0..=16).map(|x| 1 << x).collect();
-    let mut mt = super::rand::MT19937::default();
+    let mut rand = super::rand::XorShift32::default();
 
     println!("len,\tinplace,\tcooley_tukey,\tstockham,\tn,\tbluestein");
     for len in len_patterns.into_iter() {
-        let x: Vec<Complex> = (0..len).map(|_| Complex::new(mt.f64(), mt.f64())).collect();
+        let x: Vec<Complex> = (0..len)
+            .map(|_| Complex::new(rand.f64(), rand.f64()))
+            .collect();
 
         let start = std::time::Instant::now();
         let _ = fft_inplace(&x, false);
@@ -429,11 +431,13 @@ mod tests {
 
     #[test]
     fn test_fft() {
-        let mut mt = MT19937::default();
+        let mut rand = XorShift32::default();
         //const LEN_PATTERNS: [usize; 3] = [128, 2 * 2 * 2 * 3 * 3 * 7, 127];
         const LEN_PATTERNS: [usize; 1] = [128];
         for len in LEN_PATTERNS.into_iter() {
-            let x: Vec<Complex> = (0..len).map(|_| Complex::new(mt.f64(), mt.f64())).collect();
+            let x: Vec<Complex> = (0..len)
+                .map(|_| Complex::new(rand.f64(), rand.f64()))
+                .collect();
             let expect_fft = dft(&x, false);
             let actual_fft = fft_inplace(&x, false);
             let actual_ifft = fft_inplace(&actual_fft, true);
@@ -452,9 +456,9 @@ mod tests {
 
     #[test]
     fn test_fft_cooley_tukey() {
-        let mut mt = MT19937::default();
+        let mut rand = XorShift32::default();
         let x = (0..128)
-            .map(|_| Complex::new(mt.f64(), mt.f64()))
+            .map(|_| Complex::new(rand.f64(), rand.f64()))
             .collect::<Vec<Complex>>();
         let expect_fft = dft(&x, false);
         let actual_fft = fft_cooley_tukey(&x, false);
@@ -473,9 +477,9 @@ mod tests {
 
     #[test]
     fn test_fft_stockham() {
-        let mut mt = MT19937::default();
+        let mut rand = XorShift32::default();
         let x = (0..128)
-            .map(|_| Complex::new(mt.f64(), mt.f64()))
+            .map(|_| Complex::new(rand.f64(), rand.f64()))
             .collect::<Vec<Complex>>();
         let expect_fft = dft(&x, false);
         let actual_fft = fft_stockham(&x, false);
@@ -494,10 +498,12 @@ mod tests {
 
     #[test]
     fn test_fft_n() {
-        let mut mt = MT19937::default();
+        let mut rand = XorShift32::default();
         const LEN_PATTERNS: [usize; 3] = [128, 2 * 2 * 2 * 3 * 3 * 7, 127];
         for len in LEN_PATTERNS.into_iter() {
-            let x: Vec<Complex> = (0..len).map(|_| Complex::new(mt.f64(), mt.f64())).collect();
+            let x: Vec<Complex> = (0..len)
+                .map(|_| Complex::new(rand.f64(), rand.f64()))
+                .collect();
             let expect_fft = dft(&x, false);
             let actual_fft = fft_n(&x, false);
             let actual_ifft = fft_n(&actual_fft, true);
@@ -560,10 +566,12 @@ mod tests {
 
     #[test]
     fn test_fft_bluestein() {
-        let mut mt = MT19937::default();
+        let mut rand = XorShift32::default();
         const LEN_PATTERNS: [usize; 3] = [128, 2 * 2 * 2 * 3 * 3 * 7, 127];
         for len in LEN_PATTERNS.into_iter() {
-            let x: Vec<Complex> = (0..len).map(|_| Complex::new(mt.f64(), mt.f64())).collect();
+            let x: Vec<Complex> = (0..len)
+                .map(|_| Complex::new(rand.f64(), rand.f64()))
+                .collect();
             let expect_fft = dft(&x, false);
             let actual_fft = fft_bluestein(&x, false);
             let actual_ifft = fft_bluestein(&actual_fft, true);
