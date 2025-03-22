@@ -70,7 +70,9 @@
 
 と式変形でき、よく見ると外側の DFT と内側の DFT に分割された形になっていることがわかる。
 
-...これだと分かりづらいので、 $X$ を偶数個目と奇数個目に分けて離散フーリエ変換する例を考えてみる。  
+## 具体例
+
+$X$ を偶数個目と奇数個目に分けて離散フーリエ変換する例を考えてみる。  
 上式に $N_1 = 2, k_1 = 0, 1$ を代入し整理してみると、
 
 ```math
@@ -158,107 +160,199 @@ x[7] -----------------------------------------------------+-(*-1)-(+)--(*W_8^3)-
 
 以上の分割操作を繰り返すことにより DFT の計算量を $O(N^2)$ から $O(N \log N)$ に減らすことができる。
 
-最後にサンプルコードを示す。
+## サンプルコード
+
+最後にサンプルコードを示す。  
+このコードは 0BSD ライセンス (出典明記不要で自由に利用可能) の元に公開する。
+
+[playground](https://play.rust-lang.org/)
 
 ```rust
-fn fft(x: &Vec<(f64, f64)>, inverse: bool) -> Vec<(f64, f64)> {
+fn main() {
+    // DFT と Cooley-Tukey FFT の計算時間を比較
+    println!("len\tdft (sec)\tfft_cooley_tukey (sec)");
+    let mut rand = random();
+    let len_patterns: Vec<usize> = (0..=10).map(|x| 1 << x).collect();
+    for len in len_patterns {
+        let x: Vec<(f64, f64)> = (0..len).map(|_| (rand(), rand())).collect();
+
+        let start = std::time::Instant::now();
+        let y1 = dft(&x, false);
+        let dft_dur = start.elapsed().as_secs_f64();
+
+        let start = std::time::Instant::now();
+        let y2 = fft_cooley_tukey(&x, false);
+        let cooley_tukey_dur = start.elapsed().as_secs_f64();
+
+        std::hint::black_box((y1, y2));
+        println!("{}\t{:.9}\t{:.9}", len, dft_dur, cooley_tukey_dur);
+    }
+}
+
+fn dft(x: &Vec<(f64, f64)>, inverse: bool) -> Vec<(f64, f64)> {
     // 事前に w を計算しておく
     let sign = if inverse { 1.0 } else { -1.0 };
     let w: Vec<(f64, f64)> = (0..x.len())
-        .map(|i| {
-            let theta = sign * std::f64::consts::TAU * i as f64 / x.len() as f64;
+        .map(|n| {
+            let theta = sign * std::f64::consts::TAU * n as f64 / x.len() as f64;
             (theta.cos(), theta.sin())
         })
         .collect();
 
-    // 出力用 (x1 と x2 を交互に使い回す)
-    let mut x1 = x.clone();
-    let mut x2 = vec![(0f64, 0f64); x1.len()];
+    // DFT
+    let mut y = vec![(0f64, 0f64); x.len()];
+    for k in 0..y.len() {
+        for n in 0..x.len() {
+            let w_nk = w[(n * k) % w.len()];
+            y[k].0 += x[n].0 * w_nk.0 - x[n].1 * w_nk.1;
+            y[k].1 += x[n].0 * w_nk.1 + x[n].1 * w_nk.0;
+        }
+        if inverse {
+            y[k].0 /= y.len() as f64;
+            y[k].1 /= y.len() as f64;
+        }
+    }
+
+    return y;
+}
+
+fn fft_cooley_tukey(x: &Vec<(f64, f64)>, inverse: bool) -> Vec<(f64, f64)> {
+    // 事前に w を計算しておく
+    let sign = if inverse { 1.0 } else { -1.0 };
+    let w: Vec<(f64, f64)> = (0..x.len())
+        .map(|n| {
+            let theta = sign * std::f64::consts::TAU * n as f64 / x.len() as f64;
+            (theta.cos(), theta.sin())
+        })
+        .collect();
+
+    // 出力用 (y1 と y2 を交互に使い回す)
+    let mut y1 = x.clone();
+    let mut y2 = vec![(0f64, 0f64); x.len()];
 
     // FFT
+    let mut len = y1.len();
     let mut stride = 1;
-    let mut len = x.len();
-    while len > 1 {
+    while len >= 2 {
         // len を 2 つの整数の積に分解
-        let len1 = {
-            const FACTORS: [usize; 4] = [2, 3, 5, 7];
-            FACTORS.into_iter().find(|f| len % f == 0).unwrap_or(len)
-        };
+        let len1 = (2..len).find(|&n| len % n == 0).unwrap_or(len);
         let len2 = len / len1;
 
         // バタフライ演算
-        match len1 {
-            // 高速化のため、基数が小さいときは式を展開
-            2 => {
+        y2.iter_mut().for_each(|y| *y = (0.0, 0.0));
+        for k1 in 0..len1 {
+            for n1 in 0..len1 {
                 for n2 in 0..len2 {
-                    let w = w[(stride * n2) % w.len()];
+                    let k = len1 * n2 + k1;
+                    let n = len2 * n1 + n2;
+                    let w = w[(stride * n * k1) % w.len()];
                     for offset in 0..stride {
-                        let a = x1[stride * n2 + offset];
-                        let b = x1[stride * (n2 + len2) + offset];
-                        x2[stride * (2 * n2) + offset] = (a.0 + b.0, a.1 + b.1);
-                        x2[stride * (2 * n2 + 1) + offset] = (
-                            (a.0 - b.0) * w.0 - (a.1 - b.1) * w.1,
-                            (a.0 - b.0) * w.1 + (a.1 - b.1) * w.0,
-                        );
-                    }
-                }
-            }
-            _ => {
-                x2.iter_mut().for_each(|x| *x = (0.0, 0.0));
-                for k1 in 0..len1 {
-                    for n1 in 0..len1 {
-                        for n2 in 0..len2 {
-                            let k = len1 * n2 + k1;
-                            let n = len2 * n1 + n2;
-                            let w = w[(stride * n * k1) % w.len()];
-                            for offset in 0..stride {
-                                let k = stride * k + offset;
-                                let n = stride * n + offset;
-                                x2[k].0 += x1[n].0 * w.0 - x1[n].1 * w.1;
-                                x2[k].1 += x1[n].0 * w.1 + x1[n].1 * w.0;
-                            }
-                        }
+                        let k = stride * k + offset;
+                        let n = stride * n + offset;
+                        y2[k].0 += y1[n].0 * w.0 - y1[n].1 * w.1;
+                        y2[k].1 += y1[n].0 * w.1 + y1[n].1 * w.0;
                     }
                 }
             }
         }
 
-        // x1 と x2 を入れ替えて次のステップへ
-        std::mem::swap(&mut x1, &mut x2);
-        stride *= len1;
+        // y1 と y2 を入れ替えて次のステップへ
+        std::mem::swap(&mut y1, &mut y2);
         len = len2;
+        stride *= len1;
     }
 
     // 逆変換の場合は正規化
     if inverse {
-        for n in 0..x.len() {
-            x1[n].0 /= x.len() as f64;
-            x1[n].1 /= x.len() as f64;
+        for k in 0..y1.len() {
+            y1[k].0 /= y1.len() as f64;
+            y1[k].1 /= y1.len() as f64;
         }
     }
 
-    x1
+    return y1;
 }
 
-fn main() {
-    let len = 2 * 2 * 2 * 3 * 3 * 7 * 13;
+// 疑似乱数生成 (xorshift32)
+fn random() -> impl FnMut() -> f64 {
+    let mut state = 1u32;
+    move || {
+        state ^= state << 13;
+        state ^= state >> 17;
+        state ^= state << 5;
+        return (state - 1) as f64 / std::u32::MAX as f64;
+    }
+}
 
-    // 1 Hz の正弦波
-    let x: Vec<(f64, f64)> = (0..len)
-        .map(|n| std::f64::consts::TAU * (n as f64) / (len as f64))
-        .map(|n| (n.cos(), n.sin()))
-        .collect();
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    let y = fft(&x, false);
+    #[test]
+    fn test_dft() {
+        // 1 Hz の正弦波を用意
+        let x: Vec<(f64, f64)> = (0..8)
+            .map(|n| std::f64::consts::TAU * n as f64 / 8.0)
+            .map(|n| (n.cos(), n.sin()))
+            .collect();
 
-    for v in y.iter().take(5) {
-        println!("{:.3}, {:.3}", v.0 / len as f64, v.1 / len as f64);
-        // 0.000, 0.000
-        // 1.000, 0.000
-        // 0.000, 0.000
-        // 0.000, 0.000
-        // 0.000, 0.000
-        // ...
+        // 期待する DFT の結果
+        let expect_fft: Vec<(f64, f64)> = vec![0.0, 8.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            .into_iter()
+            .map(|n| (n, 0.0))
+            .collect();
+
+        // DFT
+        let actual_fft = dft(&x, false);
+        assert_eq!(actual_fft.len(), expect_fft.len());
+        for (a, b) in expect_fft.iter().zip(actual_fft.iter()) {
+            assert!((a.0 - b.0).abs() < 1e-10, "{} != {}", a.0, b.0);
+            assert!((a.1 - b.1).abs() < 1e-10, "{} != {}", a.1, b.1);
+        }
+
+        // iDFT
+        let actual_ifft = dft(&actual_fft, true);
+        assert_eq!(actual_ifft.len(), x.len());
+        for (a, b) in x.iter().zip(actual_ifft.iter()) {
+            assert!((a.0 - b.0).abs() < 1e-10, "{} != {}", a.0, b.0);
+            assert!((a.1 - b.1).abs() < 1e-10, "{} != {}", a.1, b.1);
+        }
+    }
+
+    #[test]
+    fn test_fft() {
+        // 乱数列を用意
+        let mut rand = random();
+        let len = 2 * 3 * 5 * 7;
+        let x: Vec<(f64, f64)> = (0..len).map(|_| (rand(), rand())).collect();
+
+        // FFT の結果が DFT と一致することを確認する
+        let expect_fft = dft(&x, false);
+
+        // FFT
+        let actual_fft = fft_cooley_tukey(&x, false);
+        assert_eq!(actual_fft.len(), expect_fft.len());
+        for (a, b) in expect_fft.iter().zip(actual_fft.iter()) {
+            assert!((a.0 - b.0).abs() < 1e-10, "{} != {}", a.0, b.0);
+            assert!((a.1 - b.1).abs() < 1e-10, "{} != {}", a.1, b.1);
+        }
+
+        // iFFT
+        let actual_ifft = fft_cooley_tukey(&actual_fft, true);
+        assert_eq!(actual_ifft.len(), x.len());
+        for (a, b) in x.iter().zip(actual_ifft.iter()) {
+            assert!((a.0 - b.0).abs() < 1e-10, "{} != {}", a.0, b.0);
+            assert!((a.1 - b.1).abs() < 1e-10, "{} != {}", a.1, b.1);
+        }
+    }
+
+    #[test]
+    fn test_random() {
+        let mut rand = random();
+        for _ in 0..9999 {
+            rand();
+        }
+        assert_eq!(rand(), 1799336687.0 / std::u32::MAX as f64);
     }
 }
 ```
@@ -487,10 +581,184 @@ X[k] = b'[k]^* \times \mathcal{F}^{-1}(\mathcal{F}(a') \cdot \mathcal{F}(b'))[k]
 
 を計算すれば良いこととなる。
 
-最後にサンプルコードを示す。
+## サンプルコード
 
-```
-TODO
+最後にサンプルコードを示す。  
+このコードは 0BSD ライセンス (出典明記不要で自由に利用可能) の元に公開する。
+
+[playground](https://play.rust-lang.org/)
+
+```rust
+fn main() {
+    // Cooley-Tukey FFT と Bluestein's FFT の計算時間を比較
+    println!("len\tfft_cooley_tukey (sec), fft_bluestein (sec)");
+    let mut rand = random();
+    let len_patterns: Vec<usize> = (0..=10).map(|x| 1 << x).collect();
+    for len in len_patterns {
+        let x: Vec<(f64, f64)> = (0..len).map(|_| (rand(), rand())).collect();
+
+        let start = std::time::Instant::now();
+        let y1 = fft_cooley_tukey(&x, false);
+        let cooley_tukey_dur = start.elapsed().as_secs_f64();
+
+        let start = std::time::Instant::now();
+        let y2 = fft_bluestein(&x, false);
+        let bluestein_dur = start.elapsed().as_secs_f64();
+
+        std::hint::black_box((y1, y2));
+        println!("{}\t{:.9}\t{:.9}", len, cooley_tukey_dur, bluestein_dur);
+    }
+}
+
+fn fft_bluestein(x: &Vec<(f64, f64)>, inverse: bool) -> Vec<(f64, f64)> {
+    // 事前に w を計算しておく
+    let sign = if inverse { 1.0 } else { -1.0 };
+    let w: Vec<(f64, f64)> = (0..x.len())
+        .map(|n| {
+            let theta = sign * std::f64::consts::PI * (n * n) as f64 / x.len() as f64;
+            (theta.cos(), theta.sin())
+        })
+        .collect();
+
+    // Bluestein's FFT
+    let len = (x.len() * 2 - 1).next_power_of_two();
+    let a: Vec<(f64, f64)> = (0..len)
+        .map(|n| match n {
+            _ if n < x.len() => (
+                x[n].0 * w[n].0 - x[n].1 * w[n].1,
+                x[n].0 * w[n].1 + x[n].1 * w[n].0,
+            ),
+            _ => (0.0, 0.0),
+        })
+        .collect();
+    let b: Vec<(f64, f64)> = (0..len)
+        .map(|n| match n {
+            _ if n < x.len() => (w[n].0, -w[n].1),
+            _ if len - n < x.len() => (w[len - n].0, -w[len - n].1),
+            _ => (0.0, 0.0),
+        })
+        .collect();
+    let a_fft = fft_cooley_tukey(&a, false);
+    let b_fft = fft_cooley_tukey(&b, false);
+    let y_fft: Vec<(f64, f64)> = (a_fft.iter().zip(b_fft.iter()))
+        .map(|(a, b)| (a.0 * b.0 - a.1 * b.1, a.0 * b.1 + a.1 * b.0))
+        .collect();
+    let mut y = fft_cooley_tukey(&y_fft, true);
+    y.truncate(x.len());
+
+    for k in 0..y.len() {
+        y[k] = (
+            y[k].0 * b[k].0 - y[k].1 * -b[k].1,
+            y[k].0 * -b[k].1 + y[k].1 * b[k].0,
+        );
+        if inverse {
+            y[k].0 /= y.len() as f64;
+            y[k].1 /= y.len() as f64;
+        }
+    }
+
+    return y;
+}
+
+fn fft_cooley_tukey(x: &Vec<(f64, f64)>, inverse: bool) -> Vec<(f64, f64)> {
+    // 事前に w を計算しておく
+    let sign = if inverse { 1.0 } else { -1.0 };
+    let w: Vec<(f64, f64)> = (0..x.len())
+        .map(|n| {
+            let theta = sign * std::f64::consts::TAU * n as f64 / x.len() as f64;
+            (theta.cos(), theta.sin())
+        })
+        .collect();
+
+    // 出力用 (y1 と y2 を交互に使い回す)
+    let mut y1 = x.clone();
+    let mut y2 = vec![(0f64, 0f64); x.len()];
+
+    // FFT
+    let mut len = y1.len();
+    let mut stride = 1;
+    while len >= 2 {
+        // len を 2 つの整数の積に分解
+        let len1 = (2..len).find(|&n| len % n == 0).unwrap_or(len);
+        let len2 = len / len1;
+
+        // バタフライ演算
+        y2.iter_mut().for_each(|y| *y = (0.0, 0.0));
+        for k1 in 0..len1 {
+            for n1 in 0..len1 {
+                for n2 in 0..len2 {
+                    let k = len1 * n2 + k1;
+                    let n = len2 * n1 + n2;
+                    let w = w[(stride * n * k1) % w.len()];
+                    for offset in 0..stride {
+                        let k = stride * k + offset;
+                        let n = stride * n + offset;
+                        y2[k].0 += y1[n].0 * w.0 - y1[n].1 * w.1;
+                        y2[k].1 += y1[n].0 * w.1 + y1[n].1 * w.0;
+                    }
+                }
+            }
+        }
+
+        // y1 と y2 を入れ替えて次のステップへ
+        std::mem::swap(&mut y1, &mut y2);
+        len = len2;
+        stride *= len1;
+    }
+
+    // 逆変換の場合は正規化
+    if inverse {
+        for k in 0..y1.len() {
+            y1[k].0 /= y1.len() as f64;
+            y1[k].1 /= y1.len() as f64;
+        }
+    }
+
+    return y1;
+}
+
+// 疑似乱数生成 (xorshift32)
+fn random() -> impl FnMut() -> f64 {
+    let mut state = 1u32;
+    move || {
+        state ^= state << 13;
+        state ^= state >> 17;
+        state ^= state << 5;
+        return (state - 1) as f64 / std::u32::MAX as f64;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_fft_bluestein() {
+        // 乱数列を用意
+        let mut rand = random();
+        let len = 2 * 3 * 5 * 7;
+        let x: Vec<(f64, f64)> = (0..len).map(|_| (rand(), rand())).collect();
+
+        // Bluestein's FFT の結果が Cooley-Tukey FFT と一致することを確認する
+        let expect_fft = fft_cooley_tukey(&x, false);
+
+        // FFT
+        let actual_fft = fft_bluestein(&x, false);
+        assert_eq!(actual_fft.len(), expect_fft.len());
+        for (a, b) in expect_fft.iter().zip(actual_fft.iter()) {
+            assert!((a.0 - b.0).abs() < 1e-10, "{} != {}", a.0, b.0);
+            assert!((a.1 - b.1).abs() < 1e-10, "{} != {}", a.1, b.1);
+        }
+
+        // iFFT
+        let actual_ifft = fft_bluestein(&actual_fft, true);
+        assert_eq!(actual_ifft.len(), x.len());
+        for (a, b) in x.iter().zip(actual_ifft.iter()) {
+            assert!((a.0 - b.0).abs() < 1e-10, "{} != {}", a.0, b.0);
+            assert!((a.1 - b.1).abs() < 1e-10, "{} != {}", a.1, b.1);
+        }
+    }
+}
 ```
 
 参考
