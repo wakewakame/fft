@@ -29,8 +29,15 @@ mod tests {
     #[test]
     fn test_xor_shift32() {
         let mut rand = XorShift32::default();
-        assert_eq!(rand.u32(), 270369);
-        assert_eq!(rand.u32(), 67634689);
-        assert_eq!(rand.u32(), 2647435461);
+        for _ in 0..9999 {
+            rand.u32();
+        }
+        assert_eq!(rand.u32(), 1799336688);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_xor_shift32_zero() {
+        XorShift32::new(0);
     }
 }
