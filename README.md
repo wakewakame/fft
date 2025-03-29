@@ -1,5 +1,11 @@
 FFT やフィルターなどのスクラッチ実装
 
+サンプル実行
+
+```sh
+cargo run --example bench
+```
+
 提供する機能
 
 - [x] 任意の要素数の FFT
