@@ -3,7 +3,7 @@ FFT やフィルターなどのスクラッチ実装
 サンプル実行
 
 ```sh
-cargo run --example bench
+cargo run --release --example bench
 ```
 
 提供する機能

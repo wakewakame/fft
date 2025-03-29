@@ -192,32 +192,32 @@ mod tests {
 
     #[test]
     fn test_fft() {
-        // 大小さまざまな素因数を持つ長さの配列に対してテスト
-        let len = 2 * 2 * 3 * 23;
+        const LEN_PATTERNS: [usize; 3] = [0, 1, 2 * 2 * 3 * 23];
+        for len in LEN_PATTERNS.into_iter() {
+            // 乱数列を生成
+            let mut rand = XorShift32::default();
+            let x: Vec<Complex> = (0..len)
+                .map(|_| Complex::new(rand.f64(), rand.f64()))
+                .collect();
 
-        // 乱数列を生成
-        let mut rand = XorShift32::default();
-        let x: Vec<Complex> = (0..len)
-            .map(|_| Complex::new(rand.f64(), rand.f64()))
-            .collect();
+            // DFT と計算が一致することを確認
+            let expect_fft = dft(&x, false);
 
-        // DFT と計算が一致することを確認
-        let expect_fft = dft(&x, false);
+            // FFT
+            let actual_fft = fft(&x, false);
+            assert_eq!(actual_fft.len(), expect_fft.len());
+            for (a, b) in expect_fft.iter().zip(actual_fft.iter()) {
+                assert!((a.re - b.re).abs() < 1e-10, "{} != {}", a.re, b.re);
+                assert!((a.im - b.im).abs() < 1e-10, "{} != {}", a.im, b.im);
+            }
 
-        // FFT
-        let actual_fft = fft(&x, false);
-        assert_eq!(actual_fft.len(), expect_fft.len());
-        for (a, b) in expect_fft.iter().zip(actual_fft.iter()) {
-            assert!((a.re - b.re).abs() < 1e-10, "{} != {}", a.re, b.re);
-            assert!((a.im - b.im).abs() < 1e-10, "{} != {}", a.im, b.im);
-        }
-
-        // iFFT
-        let actual_ifft = fft(&actual_fft, true);
-        assert_eq!(actual_ifft.len(), x.len());
-        for (a, b) in x.iter().zip(actual_ifft.iter()) {
-            assert!((a.re - b.re).abs() < 1e-10, "{} != {}", a.re, b.re);
-            assert!((a.im - b.im).abs() < 1e-10, "{} != {}", a.im, b.im);
+            // iFFT
+            let actual_ifft = fft(&actual_fft, true);
+            assert_eq!(actual_ifft.len(), x.len());
+            for (a, b) in x.iter().zip(actual_ifft.iter()) {
+                assert!((a.re - b.re).abs() < 1e-10, "{} != {}", a.re, b.re);
+                assert!((a.im - b.im).abs() < 1e-10, "{} != {}", a.im, b.im);
+            }
         }
     }
 }
