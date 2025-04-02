@@ -13,7 +13,7 @@ fn main() {
         })
         .collect::<Vec<Complex>>();
     let t = fft(&x, false);
-    plot(&t, 40, 10);
+    plot(&t, 40, 10, true);
 
     math::fft::bench();
 }
