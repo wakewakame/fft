@@ -1,6 +1,6 @@
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use math::complex::*;
-use math::fft_range::*;
+use math::fft::*;
 use math::plot::*;
 use std::sync::mpsc;
 
@@ -39,19 +39,10 @@ fn main() {
                 buffer.1 = 0;
 
                 // 描画
-                let fft = fft_range(&to_complex(&buffer.0.to_vec()), 0.0, 64.0, 40);
-                let wave = fft.iter().map(|&x| x * 1.0).collect();
-                plot(&wave, 40, 10, false);
-                plot(
-                    &buffer
-                        .0
-                        .iter()
-                        .map(|&x| Complex::new(0.5 + 20.0 * x, 0.0))
-                        .collect(),
-                    40,
-                    10,
-                    false,
-                );
+                let input = window(&to_complex(&buffer.0.to_vec()), false);
+                let fft = fft_range(&input, 0.0, 10.0, 40);
+                let scale = fft.iter().map(|&x| x * 0.05).collect();
+                plot(&scale, 60, 20, false);
             }
         }
     }
