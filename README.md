@@ -11,5 +11,9 @@ cargo run --release --example bench
 - [x] 任意の要素数の FFT
 - [x] 疑似乱数生成
 - [x] 畳み込み
-- [ ] 双2次フィルタ
+- [x] 双2次フィルタ
+- [ ] 音程推定
+- [ ] 重畳加算法
+- [ ] リバーブ
+- [ ] ピッチ変換 (Phase Vocoder か WSOLA のどちらか)
 - [ ] JavaScript への移植

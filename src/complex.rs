@@ -88,6 +88,21 @@ impl MulAssign<Self> for Complex {
         *self = *self * rhs;
     }
 }
+impl Div<Complex> for Complex {
+    type Output = Self;
+    fn div(self, rhs: Complex) -> Self {
+        let denom = rhs.re * rhs.re + rhs.im * rhs.im;
+        Complex::new(
+            (self.re * rhs.re + self.im * rhs.im) / denom,
+            (self.im * rhs.re - self.re * rhs.im) / denom,
+        )
+    }
+}
+impl DivAssign<Complex> for Complex {
+    fn div_assign(&mut self, rhs: Complex) {
+        *self = *self / rhs;
+    }
+}
 impl Div<f64> for Complex {
     type Output = Self;
     fn div(self, rhs: f64) -> Self {

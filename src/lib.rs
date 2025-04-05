@@ -1,3 +1,4 @@
+pub mod biquad;
 pub mod complex;
 pub mod conv;
 pub mod fft;
