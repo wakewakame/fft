@@ -15,6 +15,7 @@ pub struct BiQuad {
 // TODO: 複数のフィルタを直列に繋げられるようにしたい
 // TODO: フィルタの種類を増やしたい
 // TODO: カットオフ周波数の正弦波を入力したときのテストを追加したい
+// TODO: リバーブ等の処理等も同様に扱えるように IIR として一般化したい
 impl BiQuad {
     pub fn new(sample_rate: f64) -> Self {
         Self {
@@ -94,5 +95,11 @@ impl BiQuad {
             result.push(h.abs());
         }
         result
+    }
+
+    // インパルス応答の配列を返す
+    pub fn impulse_response(&self, num_points: usize) -> Vec<f64> {
+        std::hint::black_box(num_points);
+        todo!();
     }
 }
